@@ -3,155 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QR Share</title>
-  <meta name="theme-color" content="#6366f1">
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <title>Share via QR</title>
   <link rel="stylesheet" href="/style.css" />
-  <!-- Fixed QR library (browser bundle) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="display">Display QR</button>
-      <button class="tab-btn" data-tab="send">Send Text</button>
-    </div>
-
-    <div id="display-tab" class="tab-content active">
-      <h1>Scan from your phone</h1>
-      <div id="qrcode-container">
-        <div id="qrcode"></div>
-        <p id="qr-error" style="display:none; color:#ef4444; text-align:center; margin-top:1rem;">
-          QR failed to generate – try refreshing
-        </p>
-      </div>
-      <div id="received" class="received-box">
-        Waiting for text...<br>
-        <small>Use your phone's camera app to scan the QR code</small>
-      </div>
-    </div>
-
-    <div id="send-tab" class="tab-content">
-      <h1>Send Text</h1>
-      <textarea id="input" placeholder="Type or paste your message here..."></textarea>
-      <button onclick="sendText()">Send Now</button>
-      <p id="status">Ready...</p>
+    <h1>Share via QR</h1>
+    <div id="qrcode"></div>
+    <div id="received">
+      Waiting for data...<br>
+      <small>Point your phone camera at this QR code</small>
     </div>
   </div>
 
   <script>
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
-      });
+    const uuid = crypto.randomUUID();
+    const url = `${location.origin}/join?uuid=${uuid}`;
+
+    new QRCode(document.getElementById("qrcode"), {
+      text: url,
+      width: 280,
+      height: 280,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
     });
 
-    // Auto-switch to Send tab when opened via QR (?uuid=...)
-    const params = new URLSearchParams(location.search);
-    const uuidFromUrl = params.get('uuid');
-    if (uuidFromUrl) {
-      document.querySelector('[data-tab="display"]').classList.remove('active');
-      document.querySelector('[data-tab="send"]').classList.add('active');
-      document.getElementById('display-tab').classList.remove('active');
-      document.getElementById('send-tab').classList.add('active');
-    }
-
-    // UUID & Socket
-    const uuid = uuidFromUrl || crypto.randomUUID();
     const socket = io('wss://' + location.host, {
       query: { uuid },
       transports: ['websocket'],
-      reconnection: true
+      reconnection: true,
+      reconnectionAttempts: 5
     });
 
     socket.on('connect', () => {
-      if (uuidFromUrl) {
-        document.getElementById('status').textContent = 'Connected – ready to send';
-      }
+      document.getElementById('received').innerHTML =
+        `Waiting for data...<br><small>UUID: ${uuid.slice(0,8)}…</small>`;
     });
 
-    // Display QR logic (only run if this is the display device)
-    if (!uuidFromUrl) {
-      const qrcodeEl = document.getElementById('qrcode');
-      const shareUrl = location.origin + '?uuid=' + uuid;
+    socket.on('message', (text) => {
+      document.getElementById('received').innerHTML =
+        `<strong>Received:</strong><br>${text.replace(/\n/g, '<br>')}`;
+    });
 
-      QRCode.toCanvas(qrcodeEl, shareUrl, {
-        width: 1,  // dummy – controlled by CSS
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-        errorCorrectionLevel: 'H'
-      }, (err) => {
-        if (err) {
-          console.error('QR generation error:', err);
-          document.getElementById('qr-error').style.display = 'block';
-        }
-      });
-
-      function resizeQR() {
-        const size = Math.min(window.innerWidth, window.innerHeight) * 0.88;
-        qrcodeEl.style.width = size + 'px';
-        qrcodeEl.style.height = size + 'px';
-        const canvas = qrcodeEl.querySelector('canvas');
-        if (canvas) {
-          canvas.style.width = '100%';
-          canvas.style.height = '100%';
-        }
-      }
-
-      window.addEventListener('resize', resizeQR);
-      resizeQR();
-
-      socket.on('message', (text) => {
-        const received = document.getElementById('received');
-        received.innerHTML = `
-          <strong>Received:</strong><br>
-          <span id="received-text">${text.replace(/\n/g, '<br>')}</span><br>
-          <button onclick="copyReceived()">Copy Text</button>
-        `;
-      });
-    }
-
-    // Send logic
-    function sendText() {
-      const input = document.getElementById('input');
-      const text = input.value.trim();
-      if (!text) {
-        document.getElementById('status').textContent = 'Please enter some text';
-        return;
-      }
-      socket.emit('send', text);
-      document.getElementById('status').innerHTML = `Sent at ${new Date().toLocaleTimeString()}`;
-      input.value = '';
-    }
-
-    function copyReceived() {
-      const textEl = document.getElementById('received-text');
-      if (!textEl) return;
-      const plainText = textEl.innerText.replace(/<br>/g, '\n');
-      navigator.clipboard.writeText(plainText).then(() => {
-        const btn = document.querySelector('#received button');
-        if (btn) {
-          const original = btn.textContent;
-          btn.textContent = 'Copied!';
-          setTimeout(() => { btn.textContent = original; }, 2000);
-        }
-      });
-    }
-
-    // Service Worker for PWA
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW registered'))
-          .catch(err => console.log('SW error:', err));
-      });
-    }
+    socket.on('disconnect', () => {
+      document.getElementById('received').innerHTML += '<br><small>(Disconnected – refreshing may help)</small>';
+    });
   </script>
 </body>
 </html>
