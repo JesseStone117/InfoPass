@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Display QR</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <h1>Scan this QR from your phone</h1>
+  <div id="qrcode"></div>
+  <h2 id="received" style="white-space: pre-wrap; min-height: 100px; border:1px solid #ccc; padding:10px;"></h2>
+
+  <script>
+    const uuid = crypto.randomUUID(); // or use uuid lib
+    const url = `${location.origin}/join?uuid=${uuid}`;
+
+    new QRCode(document.getElementById("qrcode"), {
+      text: url,
+      width: 300,
+      height: 300,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    const socket = io({ query: { uuid } });
+
+    socket.on('connect', () => {
+      document.getElementById('received').innerText = 'Waiting for data...\n(UUID: ' + uuid + ')';
+    });
+
+    socket.on('message', (text) => {
+      document.getElementById('received').innerText = 'Received:\n' + text;
+    });
+  </script>
+</body>
+</html>

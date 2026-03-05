@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Send Data</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Enter value to send</h1>
+  <textarea id="input" rows="5" cols="40" placeholder="Paste or type here..."></textarea><br>
+  <button onclick="send()">Send</button>
+  <p id="status"></p>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const uuid = params.get('uuid');
+
+    if (!uuid) {
+      document.body.innerHTML = "<h1>Missing UUID</h1>";
+    }
+
+    const socket = io({ query: { uuid } });
+
+    socket.on('connect', () => {
+      document.getElementById('status').textContent = 'Connected!';
+    });
+
+    function send() {
+      const text = document.getElementById('input').value.trim();
+      if (text) {
+        socket.emit('send', text);
+        document.getElementById('status').textContent = 'Sent!';
+        document.getElementById('input').value = '';
+      }
+    }
+  </script>
+</body>
+</html>
