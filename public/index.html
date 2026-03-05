@@ -3,24 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Share via QR</title>
+  <title>QR Share</title>
   <link rel="stylesheet" href="/style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Share via QR</h1>
-    <div id="qrcode"></div>
-    <div id="received">
-      Waiting for data...<br>
-      <small>Point your phone camera at this QR code</small>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="display">Display QR</button>
+      <button class="tab-btn" data-tab="send">Send / Scan</button>
+    </div>
+
+    <!-- Display QR Tab -->
+    <div id="display-tab" class="tab-content active">
+      <h1>Share via QR</h1>
+      <div id="qrcode"></div>
+      <div id="received">
+        Waiting for data...<br>
+        <small>Switch to "Send / Scan" on your phone</small>
+      </div>
+    </div>
+
+    <!-- Send / Scan Tab -->
+    <div id="send-tab" class="tab-content">
+      <h1>Send Something</h1>
+      <textarea id="input" placeholder="Type or paste text / link here..."></textarea>
+      <button onclick="sendText()">Send Text Now</button>
+      <button onclick="toggleScanner()">Toggle Scan & Auto-Send</button>
+
+      <div id="scanner-container" style="display:none;">
+        <div class="scanner-overlay">
+          <div class="scan-line"></div>
+        </div>
+        <div id="reader"></div>
+      </div>
+
+      <p id="scan-status" class="status-box">Ready – enter text above first</p>
+      <p id="scan-hints" class="hints">Tips: Hold steady • Good lighting • QR large & clear on screen</p>
     </div>
   </div>
 
   <script>
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
+      });
+    });
+
+    // ── Display side (QR generation & receive) ──
+    const displaySection = document.getElementById('display-tab');
+    const receivedEl = document.getElementById('received');
+
     const uuid = crypto.randomUUID();
-    const url = `${location.origin}/join?uuid=${uuid}`;
+    const url = `${location.origin}/join?uuid=${uuid}`;  // Note: join.html no longer needed – all in one page
 
     new QRCode(document.getElementById("qrcode"), {
       text: url,
@@ -34,23 +75,114 @@
     const socket = io('wss://' + location.host, {
       query: { uuid },
       transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5
-    });
-
-    socket.on('connect', () => {
-      document.getElementById('received').innerHTML =
-        `Waiting for data...<br><small>UUID: ${uuid.slice(0,8)}…</small>`;
+      reconnection: true
     });
 
     socket.on('message', (text) => {
-      document.getElementById('received').innerHTML =
-        `<strong>Received:</strong><br>${text.replace(/\n/g, '<br>')}`;
+      receivedEl.innerHTML = `<strong>Received:</strong><br>${text.replace(/\n/g, '<br>')}`;
     });
 
-    socket.on('disconnect', () => {
-      document.getElementById('received').innerHTML += '<br><small>(Disconnected – refreshing may help)</small>';
-    });
+    // ── Send / Scan side ──
+    let scanner = null;
+    let scanActive = false;
+    const statusEl = document.getElementById('scan-status');
+    const hintsEl = document.getElementById('scan-hints');
+    const inputEl = document.getElementById('input');
+
+    function sendText() {
+      const text = inputEl.value.trim();
+      if (!text) {
+        statusEl.textContent = 'Enter text first';
+        return;
+      }
+      socket.emit('send', text);
+      statusEl.innerHTML = `Sent at ${new Date().toLocaleTimeString()}`;
+      inputEl.value = '';
+    }
+
+    function toggleScanner() {
+      const text = inputEl.value.trim();
+      if (!text) {
+        statusEl.textContent = 'Enter text first – will auto-send on scan';
+        return;
+      }
+
+      if (scanActive) {
+        stopScanner();
+        return;
+      }
+
+      statusEl.textContent = 'Starting camera...';
+      document.getElementById('scanner-container').style.display = 'block';
+      scanActive = true;
+
+      scanner = new Html5Qrcode("reader", /* verbose= */ true);  // Verbose for more logs
+
+      const config = {
+        fps: 12,                // Slightly higher for better feedback
+        qrbox: { width: 260, height: 260 },
+        aspectRatio: 1.0,
+        disableFlip: false
+      };
+
+      scanner.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          // Success – send & stop
+          sendText();
+          statusEl.textContent = 'Detected & sent!';
+          hintsEl.textContent = 'Success – text delivered';
+          stopScanner();
+        },
+        (errorMsg) => {
+          // Frequent failure callback – use for real-time feedback
+          if (errorMsg.includes('No MultiFormat Readers')) {
+            statusEl.textContent = 'No code in view – align QR in box';
+          } else if (errorMsg.includes('NotFoundError') || errorMsg.includes('Permission')) {
+            statusEl.textContent = 'Camera access denied – check permissions';
+          } else {
+            statusEl.textContent = 'Scanning... ' + (errorMsg.length > 60 ? 'Adjust position' : errorMsg);
+          }
+          hintsEl.textContent = getHintBasedOnTime();
+        }
+      ).catch(err => {
+        statusEl.textContent = 'Failed to start camera: ' + err.message;
+        if (err.name === 'NotAllowedError') hintsEl.textContent = 'Allow camera in browser settings';
+        if (err.name === 'NotReadableError') hintsEl.textContent = 'Camera in use by another app?';
+        scanActive = false;
+      });
+    }
+
+    function stopScanner() {
+      if (scanner) {
+        scanner.stop().then(() => {
+          document.getElementById('scanner-container').style.display = 'none';
+          statusEl.textContent = 'Scanner stopped';
+          scanActive = false;
+          scanner = null;
+        });
+      }
+    }
+
+    // Simple timed hints for better UX
+    let scanStartTime = 0;
+    function getHintBasedOnTime() {
+      if (!scanStartTime) scanStartTime = Date.now();
+      const elapsed = (Date.now() - scanStartTime) / 1000;
+      if (elapsed > 15) return 'Still no detection? Try: brighter screen, closer distance, less glare';
+      if (elapsed > 8) return 'Move slowly – ensure QR fills the guide box';
+      return 'Point directly at QR code on the other screen';
+    }
+
+    // Reset timer when starting scan
+    const originalToggle = toggleScanner;
+    toggleScanner = function() {
+      scanStartTime = 0;
+      originalToggle.apply(this, arguments);
+    };
+
+    window.addEventListener('beforeunload', stopScanner);
   </script>
 </body>
 </html>

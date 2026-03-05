@@ -111,3 +111,80 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   .container { padding: 1.5rem; }
   h1 { font-size: 1.8rem; }
 }
+
+.tabs {
+  display: flex;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.8rem;
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--text);
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  border-bottom: 3px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px solid rgba(99,102,241,0.4);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scan 2.5s linear infinite;
+}
+
+@keyframes scan {
+  0% { top: 0; opacity: 0.6; }
+  50% { top: 100%; opacity: 1; }
+  100% { top: 0; opacity: 0.6; }
+}
+
+#reader {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.status-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(99,102,241,0.1);
+  border-radius: 0.75rem;
+  font-weight: 500;
+  min-height: 60px;
+}
+
+.hints {
+  font-size: 0.95rem;
+  color: #64748b;
+  text-align: center;
+  margin-top: 0.5rem;
+}
