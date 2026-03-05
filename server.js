@@ -6,10 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 app.use(express.static('public'));
@@ -18,11 +15,7 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-app.get('/join', (req, res) => {
-  res.sendFile(__dirname + '/public/join.html');
-});
-
-const rooms = new Map(); // uuid → { sockets: Set, timeout }
+const rooms = new Map();
 
 io.on('connection', (socket) => {
   const uuid = socket.handshake.query.uuid;
@@ -32,17 +25,10 @@ io.on('connection', (socket) => {
     return;
   }
 
-  if (!rooms.has(uuid)) {
-    rooms.set(uuid, { sockets: new Set(), timeout: null });
-  }
+  if (!rooms.has(uuid)) rooms.set(uuid, { sockets: new Set() });
 
   const room = rooms.get(uuid);
   room.sockets.add(socket.id);
-
-  // Inactivity timeout: 20 minutes
-  if (room.timeout) clearTimeout(room.timeout);
-  room.timeout = setTimeout(() => rooms.delete(uuid), 20 * 60 * 1000);
-
   socket.join(uuid);
 
   socket.on('send', (text) => {
@@ -53,14 +39,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     room.sockets.delete(socket.id);
-    if (room.sockets.size === 0) {
-      clearTimeout(room.timeout);
-      rooms.delete(uuid);
-    }
+    if (room.sockets.size === 0) rooms.delete(uuid);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
