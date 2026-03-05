@@ -15,78 +15,103 @@
       margin: 0;
       padding: 20px;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      transition: all 0.6s ease;
     }
 
     .container {
-      display: flex;
-      gap: 50px;
-      align-items: flex-start;
       max-width: 1100px;
-      width: 100%;
-      flex-wrap: wrap;
-      justify-content: center;
+      margin: 0 auto;
+      transition: all 0.6s ease;
     }
 
-    .qr-section {
+    h1 {
       text-align: center;
-    }
-
-    .qr-section h1 {
-      font-size: 2.2rem;
-      margin-bottom: 30px;
+      font-size: 2.3rem;
+      margin-bottom: 40px;
       color: white;
     }
 
-    #qrcode {
-      margin: 0 auto;
+    .content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .qr-area {
+      transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       padding: 24px;
       background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
     }
 
-    .received-section {
-      min-width: 340px;
-      max-width: 460px;
+    #qrcode {
+      transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .result-area {
+      width: 100%;
+      max-width: 680px;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
       background: rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 28px;
-      height: fit-content;
+      border-radius: 20px;
+      padding: 32px;
     }
 
-    .received-section h2 {
-      margin: 0 0 16px 0;
-      font-size: 1.4rem;
+    body.received .content {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 60px;
+      justify-content: center;
+    }
+
+    body.received .qr-area {
+      transform: scale(0.38);
+      transform-origin: top left;
+      padding: 16px;
+      margin-top: 10px;
+    }
+
+    body.received .result-area {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .result-area h2 {
+      margin: 0 0 20px 0;
       color: #60a5fa;
+      font-size: 1.5rem;
     }
 
     #received {
       background: #1e2937;
-      padding: 20px;
+      padding: 24px;
       border-radius: 12px;
-      min-height: 180px;
-      max-height: 420px;
+      min-height: 220px;
+      max-height: 480px;
       overflow-y: auto;
       white-space: pre-wrap;
-      font-size: 1.05rem;
-      line-height: 1.5;
-      margin-bottom: 20px;
+      font-size: 1.1rem;
+      line-height: 1.55;
       border: 1px solid #334155;
+      margin-bottom: 24px;
     }
 
     #copy-btn {
       width: 100%;
-      padding: 14px;
-      font-size: 1.05rem;
+      padding: 16px;
+      font-size: 1.1rem;
       background: #3b82f6;
       color: white;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
       font-weight: 600;
+      transition: all 0.3s ease;
     }
 
     #copy-btn:hover {
@@ -99,36 +124,40 @@
 
     small {
       color: #94a3b8;
-      font-size: 0.95rem;
+      display: block;
+      margin-top: 12px;
+      text-align: center;
     }
 
     @media (max-width: 900px) {
-      .container {
-        gap: 30px;
+      body.received .content {
+        flex-direction: column;
       }
-      #qrcode {
-        width: 380px;
-        height: 380px;
+      body.received .qr-area {
+        transform: scale(0.45);
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Left: QR Code -->
-    <div class="qr-section">
-      <h1>Share via QR</h1>
-      <div id="qrcode"></div>
-    </div>
-
-    <!-- Right: Received Content -->
-    <div class="received-section">
-      <h2>Received Data</h2>
-      <div id="received">
-        Waiting for data...<br><br>
-        <small>Point your phone camera at the QR code on the left</small>
+    <h1>Share via QR</h1>
+    
+    <div class="content">
+      <!-- QR Code -->
+      <div class="qr-area">
+        <div id="qrcode"></div>
       </div>
-      <button id="copy-btn" style="display: none;">📋 Copy to Clipboard</button>
+
+      <!-- Result Panel -->
+      <div class="result-area">
+        <h2>Received Data</h2>
+        <div id="received">
+          Waiting for data...<br><br>
+          <small>Point your phone camera at the QR code</small>
+        </div>
+        <button id="copy-btn" style="display: none;">📋 Copy to Clipboard</button>
+      </div>
     </div>
   </div>
 
@@ -136,11 +165,11 @@
     const uuid = crypto.randomUUID();
     const url = `${location.origin}/join?uuid=${uuid}`;
 
-    // Large QR Code
+    // Large QR while waiting
     new QRCode(document.getElementById("qrcode"), {
       text: url,
-      width: 520,
-      height: 520,
+      width: 560,
+      height: 560,
       colorDark: "#0f172a",
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.H
@@ -163,8 +192,11 @@
 
     socket.on('message', (text) => {
       currentText = text;
-      receivedEl.textContent = text;           // Use textContent to preserve formatting
+      receivedEl.textContent = text;
       copyBtn.style.display = 'block';
+
+      // Trigger the animation
+      document.body.classList.add('received');
     });
 
     // Copy functionality
@@ -172,19 +204,19 @@
       if (!currentText) return;
       
       navigator.clipboard.writeText(currentText).then(() => {
-        const originalText = copyBtn.textContent;
-        copyBtn.textContent = '✅ Copied!';
+        const original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '✅ Copied!';
         copyBtn.classList.add('copied');
         
         setTimeout(() => {
-          copyBtn.textContent = originalText;
+          copyBtn.innerHTML = original;
           copyBtn.classList.remove('copied');
-        }, 2000);
+        }, 1800);
       });
     });
 
     socket.on('disconnect', () => {
-      receivedEl.innerHTML += '<br><br><small style="color:#f87171">(Disconnected – try refreshing)</small>';
+      receivedEl.innerHTML += '<br><br><small style="color:#f87171">(Disconnected – refreshing may help)</small>';
     });
   </script>
 </body>
