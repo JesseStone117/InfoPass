@@ -25,23 +25,29 @@ io.on('connection', (socket) => {
     return;
   }
 
-  if (!rooms.has(uuid)) rooms.set(uuid, { sockets: new Set() });
+  if (!rooms.has(uuid)) {
+    rooms.set(uuid, { sockets: new Set() });
+  }
 
   const room = rooms.get(uuid);
   room.sockets.add(socket.id);
   socket.join(uuid);
 
   socket.on('send', (text) => {
-    if (typeof text === 'string' && text.trim().length > 0 && text.length < 8000) {
+    if (typeof text === 'string' && text.trim() && text.length < 8000) {
       io.to(uuid).emit('message', text.trim());
     }
   });
 
   socket.on('disconnect', () => {
     room.sockets.delete(socket.id);
-    if (room.sockets.size === 0) rooms.delete(uuid);
+    if (room.sockets.size === 0) {
+      rooms.delete(uuid);
+    }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
