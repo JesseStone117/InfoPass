@@ -5,24 +5,29 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
-app.use(express.static('public')); // serve HTML/JS
+app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html'); // display device page
+  res.sendFile(__dirname + '/public/index.html');
 });
 
 app.get('/join', (req, res) => {
-  res.sendFile(__dirname + '/public/join.html'); // phone page
+  res.sendFile(__dirname + '/public/join.html');
 });
 
-const rooms = new Map(); // uuid → { sockets: Set, data: null, timeout }
+const rooms = new Map(); // uuid → { sockets: Set, timeout }
 
 io.on('connection', (socket) => {
   const uuid = socket.handshake.query.uuid;
 
-  if (!uuid || !/^[0-9a-f-]{36}$/i.test(uuid)) {
+  if (!uuid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
     socket.disconnect();
     return;
   }
@@ -34,30 +39,28 @@ io.on('connection', (socket) => {
   const room = rooms.get(uuid);
   room.sockets.add(socket.id);
 
-  // Reset inactivity timeout (e.g. 15 min)
+  // Inactivity timeout: 20 minutes
   if (room.timeout) clearTimeout(room.timeout);
-  room.timeout = setTimeout(() => rooms.delete(uuid), 15 * 60 * 1000);
+  room.timeout = setTimeout(() => rooms.delete(uuid), 20 * 60 * 1000);
 
   socket.join(uuid);
 
-  // If already has data, send it immediately (in case reconnect)
-  if (room.data) {
-    socket.emit('message', room.data);
-  }
-
   socket.on('send', (text) => {
-    if (text && typeof text === 'string' && text.length < 10000) { // basic limit
-      room.data = text;
-      io.to(uuid).emit('message', text);
+    if (typeof text === 'string' && text.trim().length > 0 && text.length < 8000) {
+      io.to(uuid).emit('message', text.trim());
     }
   });
 
   socket.on('disconnect', () => {
     room.sockets.delete(socket.id);
     if (room.sockets.size === 0) {
-      // optional: keep data briefly or delete room
+      clearTimeout(room.timeout);
+      rooms.delete(uuid);
     }
   });
 });
 
-server.listen(3000, () => console.log('Listening on port 3000'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});

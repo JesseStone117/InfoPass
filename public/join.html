@@ -1,37 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Send Data</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Send to Display</title>
+  <link rel="stylesheet" href="/style.css" />
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <h1>Enter value to send</h1>
-  <textarea id="input" rows="5" cols="40" placeholder="Paste or type here..."></textarea><br>
-  <button onclick="send()">Send</button>
-  <p id="status"></p>
+  <div class="container">
+    <h1>Send Something</h1>
+
+    <textarea id="input" placeholder="Type, paste, or enter text / link here..."></textarea>
+
+    <button onclick="sendText()">Send Text</button>
+    <button onclick="startScanner()">Scan QR & Send</button>
+
+    <div id="scanner-container" style="display:none;">
+      <div id="reader"></div>
+      <p id="result"></p>
+    </div>
+
+    <p id="status">Ready...</p>
+  </div>
 
   <script>
     const params = new URLSearchParams(location.search);
     const uuid = params.get('uuid');
 
     if (!uuid) {
-      document.body.innerHTML = "<h1>Missing UUID</h1>";
+      document.body.innerHTML = '<div class="container"><h1 style="color:#ef4444;">Missing UUID</h1><p>Please scan the QR code again.</p></div>';
+      throw new Error("No UUID");
     }
 
-    const socket = io({ query: { uuid } });
-
-    socket.on('connect', () => {
-      document.getElementById('status').textContent = 'Connected!';
+    const socket = io('wss://' + location.host, {
+      query: { uuid },
+      transports: ['websocket'],
+      reconnection: true
     });
 
-    function send() {
+    socket.on('connect', () => {
+      document.getElementById('status').textContent = 'Connected – ready to send';
+    });
+
+    socket.on('disconnect', () => {
+      document.getElementById('status').textContent = 'Disconnected – check connection';
+    });
+
+    function sendText() {
       const text = document.getElementById('input').value.trim();
-      if (text) {
-        socket.emit('send', text);
-        document.getElementById('status').textContent = 'Sent!';
-        document.getElementById('input').value = '';
+      if (!text) {
+        document.getElementById('status').textContent = 'Please enter some text first';
+        return;
       }
+
+      socket.emit('send', text);
+      document.getElementById('status').innerHTML = `Sent at ${new Date().toLocaleTimeString()}`;
+      document.getElementById('input').value = '';
     }
+
+    let scanner;
+    function startScanner() {
+      const text = document.getElementById('input').value.trim();
+      if (!text) {
+        document.getElementById('status').textContent = 'Enter text first – it will be sent when you scan';
+        return;
+      }
+
+      document.getElementById('scanner-container').style.display = 'block';
+      document.getElementById('status').textContent = 'Camera open – point at the QR code...';
+
+      scanner = new Html5Qrcode("reader");
+
+      const config = { fps: 10, qrbox: { width: 260, height: 260 } };
+
+      scanner.start(
+        { facingMode: "environment" },
+        config,
+        () => {
+          // Scan detected → send immediately (we already have the text & uuid)
+          sendText();
+          scanner.stop().then(() => {
+            document.getElementById('scanner-container').style.display = 'none';
+            document.getElementById('result').textContent = 'Scanned! Text sent.';
+            document.getElementById('status').textContent = 'Success';
+          }).catch(() => {});
+        },
+        () => {} // ignore scan errors
+      ).catch(err => {
+        document.getElementById('status').textContent = 'Camera error: ' + err;
+      });
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (scanner) scanner.stop();
+    });
   </script>
 </body>
 </html>

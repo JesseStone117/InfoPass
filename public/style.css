@@ -1,0 +1,113 @@
+/* Modern minimal clean design – inspired by 2026 trends: lots of whitespace, bold sans-serif, subtle gradients, rounded corners */
+
+:root {
+  --bg: #f8f9fc;
+  --text: #1a1a2e;
+  --accent: #6366f1;       /* Indigo for buttons/actions */
+  --accent-dark: #4f46e5;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --success: #10b981;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --text: #f1f5f9;
+    --card: #1e293b;
+    --border: #334155;
+  }
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+}
+
+.container {
+  max-width: 480px;
+  width: 100%;
+  background: var(--card);
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  padding: 2rem;
+  border: 1px solid var(--border);
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--accent);
+}
+
+#qrcode { 
+  margin: 1.5rem auto; 
+  text-align: center; 
+}
+
+textarea, input {
+  width: 100%;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  resize: vertical;
+  min-height: 120px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button {
+  width: 100%;
+  padding: 1rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 0.5rem 0;
+}
+
+button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+#status, #received {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(99,102,241,0.08);
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 80px;
+}
+
+#scanner-container {
+  margin: 1.5rem 0;
+  border: 2px dashed var(--accent);
+  border-radius: 1rem;
+  overflow: hidden;
+  position: relative;
+}
+
+#reader { width: 100%; aspect-ratio: 1/1; }
+
+#result { margin-top: 1rem; font-weight: bold; color: var(--success); }
+
+@media (max-width: 500px) {
+  .container { padding: 1.5rem; }
+  h1 { font-size: 1.8rem; }
+}
