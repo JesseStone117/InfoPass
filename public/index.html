@@ -141,8 +141,6 @@
 </head>
 <body>
   <div class="container">
-    <h1>Share via QR</h1>
-    
     <div class="content">
       <!-- QR Code -->
       <div class="qr-area">
@@ -168,8 +166,8 @@
     // Large QR while waiting
     new QRCode(document.getElementById("qrcode"), {
       text: url,
-      width: 560,
-      height: 560,
+      width: 750,
+      height: 750,
       colorDark: "#0f172a",
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.H
