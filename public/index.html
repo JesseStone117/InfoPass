@@ -19,7 +19,7 @@
     }
 
     .container {
-      max-width: 1100px;
+      max-width: 1480px;           /* Increased for more breathing room */
       margin: 0 auto;
     }
 
@@ -46,13 +46,9 @@
       box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
     }
 
-    #qrcode {
-      transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
     .result-area {
       width: 100%;
-      max-width: 680px;
+      max-width: 720px;
       opacity: 0;
       transform: translateY(30px);
       transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
@@ -61,10 +57,11 @@
       padding: 32px;
     }
 
+    /* Make received data significantly wider */
     body.received .content {
       flex-direction: row;
       align-items: flex-start;
-      gap: 60px;
+      gap: 50px;
       justify-content: center;
     }
 
@@ -78,6 +75,7 @@
     body.received .result-area {
       opacity: 1;
       transform: translateY(0);
+      max-width: 980px;           /* Much wider in received mode */
     }
 
     .result-area h2 {
@@ -86,7 +84,6 @@
       font-size: 1.5rem;
     }
 
-    /* New styles for line items */
     #received-list {
       background: #1e2937;
       border-radius: 12px;
@@ -98,9 +95,9 @@
     .item-row {
       display: flex;
       align-items: center;
-      padding: 14px 20px;
+      padding: 14px 24px;
       border-bottom: 1px solid #334155;
-      gap: 16px;
+      gap: 20px;
       transition: background 0.2s;
     }
 
@@ -114,14 +111,15 @@
 
     .item-text {
       flex: 1;
-      font-size: 1.05rem;
-      line-height: 1.5;
+      font-size: 1.08rem;
+      line-height: 1.55;
       word-break: break-all;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
     .copy-item-btn {
-      padding: 8px 14px;
+      padding: 8px 16px;
       font-size: 0.95rem;
       background: #334155;
       color: #e2e8f0;
@@ -130,6 +128,7 @@
       cursor: pointer;
       transition: all 0.2s;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .copy-item-btn:hover {
@@ -175,6 +174,9 @@
       }
       body.received .qr-area {
         transform: scale(0.45);
+      }
+      body.received .result-area {
+        max-width: 100%;
       }
     }
   </style>
@@ -244,23 +246,21 @@
     function renderItems() {
       receivedList.innerHTML = '';
 
-      if (currentLines.length <= 1) {
-        // Single line case
+      if (currentLines.length <= 1 && currentText.length > 0) {
         const div = document.createElement('div');
         div.className = 'item-row';
         div.innerHTML = `
-          <div class="item-text">${currentLines[0] || currentText}</div>
+          <div class="item-text">${currentText}</div>
           <button class="copy-item-btn" data-text="${currentText.replace(/"/g, '&quot;')}">📋 Copy</button>
         `;
         receivedList.appendChild(div);
       } else {
-        // Multiple lines
-        currentLines.forEach((line, index) => {
-          if (line.length === 0 && index !== currentLines.length-1) {
+        currentLines.forEach(line => {
+          if (!line && currentLines.length > 1) {
             const empty = document.createElement('div');
             empty.className = 'item-row';
-            empty.style.opacity = '0.4';
-            empty.innerHTML = `<div class="item-text" style="font-style:italic;">(empty line)</div>`;
+            empty.style.opacity = '0.45';
+            empty.innerHTML = `<div class="item-text" style="font-style:italic;color:#64748b;">(empty line)</div>`;
             receivedList.appendChild(empty);
             return;
           }
@@ -275,16 +275,13 @@
         });
       }
 
-      // Add click listeners to all copy buttons
       document.querySelectorAll('.copy-item-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const textToCopy = btn.dataset.text;
-          
           navigator.clipboard.writeText(textToCopy).then(() => {
             const original = btn.innerHTML;
             btn.innerHTML = '✅';
             btn.classList.add('copied');
-            
             setTimeout(() => {
               btn.innerHTML = original;
               btn.classList.remove('copied');
@@ -294,15 +291,12 @@
       });
     }
 
-    // Copy All button
     copyAllBtn.addEventListener('click', () => {
       if (!currentText) return;
-      
       navigator.clipboard.writeText(currentText).then(() => {
         const original = copyAllBtn.innerHTML;
         copyAllBtn.innerHTML = '✅ Copied All!';
         copyAllBtn.classList.add('copied');
-        
         setTimeout(() => {
           copyAllBtn.innerHTML = original;
           copyAllBtn.classList.remove('copied');
