@@ -21,7 +21,6 @@
     .container {
       max-width: 1100px;
       margin: 0 auto;
-      transition: all 0.6s ease;
     }
 
     h1 {
@@ -87,21 +86,62 @@
       font-size: 1.5rem;
     }
 
-    #received {
+    /* New styles for line items */
+    #received-list {
       background: #1e2937;
-      padding: 24px;
       border-radius: 12px;
-      min-height: 220px;
-      max-height: 480px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      font-size: 1.1rem;
-      line-height: 1.55;
       border: 1px solid #334155;
-      margin-bottom: 24px;
+      overflow: hidden;
+      margin-bottom: 20px;
     }
 
-    #copy-btn {
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid #334155;
+      gap: 16px;
+      transition: background 0.2s;
+    }
+
+    .item-row:last-child {
+      border-bottom: none;
+    }
+
+    .item-row:hover {
+      background: #273549;
+    }
+
+    .item-text {
+      flex: 1;
+      font-size: 1.05rem;
+      line-height: 1.5;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    .copy-item-btn {
+      padding: 8px 14px;
+      font-size: 0.95rem;
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .copy-item-btn:hover {
+      background: #475569;
+    }
+
+    .copy-item-btn.copied {
+      background: #22c55e;
+      color: white;
+    }
+
+    #copy-all-btn {
       width: 100%;
       padding: 16px;
       font-size: 1.1rem;
@@ -114,11 +154,11 @@
       transition: all 0.3s ease;
     }
 
-    #copy-btn:hover {
+    #copy-all-btn:hover {
       background: #2563eb;
     }
 
-    #copy-btn.copied {
+    #copy-all-btn.copied {
       background: #22c55e;
     }
 
@@ -150,11 +190,13 @@
       <!-- Result Panel -->
       <div class="result-area">
         <h2>Received Data</h2>
-        <div id="received">
+        <div id="received-list">
           Waiting for data...<br><br>
           <small>Point your phone camera at the QR code</small>
         </div>
-        <button id="copy-btn" style="display: none;">📋 Copy to Clipboard</button>
+        <button id="copy-all-btn" style="display: none;">
+          📋 Copy All
+        </button>
       </div>
     </div>
   </div>
@@ -163,7 +205,6 @@
     const uuid = crypto.randomUUID();
     const url = `${location.origin}/join?uuid=${uuid}`;
 
-    // Large QR while waiting
     new QRCode(document.getElementById("qrcode"), {
       text: url,
       width: 750,
@@ -180,41 +221,97 @@
       reconnectionAttempts: 5
     });
 
-    const receivedEl = document.getElementById('received');
-    const copyBtn = document.getElementById('copy-btn');
+    const receivedList = document.getElementById('received-list');
+    const copyAllBtn = document.getElementById('copy-all-btn');
     let currentText = '';
+    let currentLines = [];
 
     socket.on('connect', () => {
-      receivedEl.innerHTML = `Waiting for data...<br><br><small>UUID: ${uuid.slice(0,8)}…</small>`;
+      receivedList.innerHTML = `Waiting for data...<br><br><small>UUID: ${uuid.slice(0,8)}…</small>`;
+      copyAllBtn.style.display = 'none';
     });
 
     socket.on('message', (text) => {
-      currentText = text;
-      receivedEl.textContent = text;
-      copyBtn.style.display = 'block';
+      currentText = text.trim();
+      currentLines = currentText.split('\n').map(line => line.trimEnd());
 
-      // Trigger the animation
+      renderItems();
+      
+      copyAllBtn.style.display = 'block';
       document.body.classList.add('received');
     });
 
-    // Copy functionality
-    copyBtn.addEventListener('click', () => {
+    function renderItems() {
+      receivedList.innerHTML = '';
+
+      if (currentLines.length <= 1) {
+        // Single line case
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="item-text">${currentLines[0] || currentText}</div>
+          <button class="copy-item-btn" data-text="${currentText.replace(/"/g, '&quot;')}">📋 Copy</button>
+        `;
+        receivedList.appendChild(div);
+      } else {
+        // Multiple lines
+        currentLines.forEach((line, index) => {
+          if (line.length === 0 && index !== currentLines.length-1) {
+            const empty = document.createElement('div');
+            empty.className = 'item-row';
+            empty.style.opacity = '0.4';
+            empty.innerHTML = `<div class="item-text" style="font-style:italic;">(empty line)</div>`;
+            receivedList.appendChild(empty);
+            return;
+          }
+
+          const div = document.createElement('div');
+          div.className = 'item-row';
+          div.innerHTML = `
+            <div class="item-text">${line}</div>
+            <button class="copy-item-btn" data-text="${line.replace(/"/g, '&quot;')}">📋 Copy</button>
+          `;
+          receivedList.appendChild(div);
+        });
+      }
+
+      // Add click listeners to all copy buttons
+      document.querySelectorAll('.copy-item-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const textToCopy = btn.dataset.text;
+          
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '✅';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+              btn.innerHTML = original;
+              btn.classList.remove('copied');
+            }, 1600);
+          });
+        });
+      });
+    }
+
+    // Copy All button
+    copyAllBtn.addEventListener('click', () => {
       if (!currentText) return;
       
       navigator.clipboard.writeText(currentText).then(() => {
-        const original = copyBtn.innerHTML;
-        copyBtn.innerHTML = '✅ Copied!';
-        copyBtn.classList.add('copied');
+        const original = copyAllBtn.innerHTML;
+        copyAllBtn.innerHTML = '✅ Copied All!';
+        copyAllBtn.classList.add('copied');
         
         setTimeout(() => {
-          copyBtn.innerHTML = original;
-          copyBtn.classList.remove('copied');
-        }, 1800);
+          copyAllBtn.innerHTML = original;
+          copyAllBtn.classList.remove('copied');
+        }, 2000);
       });
     });
 
     socket.on('disconnect', () => {
-      receivedEl.innerHTML += '<br><br><small style="color:#f87171">(Disconnected – refreshing may help)</small>';
+      receivedList.innerHTML += '<br><br><small style="color:#f87171">(Disconnected – refreshing may help)</small>';
     });
   </script>
 </body>
